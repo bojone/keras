@@ -485,7 +485,7 @@ class Adam(Optimizer):
     """
 
     def __init__(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999,
-                 amsgrad=False, **kwargs):
+                 amsgrad=False, bias_correction=True, **kwargs):
         self.initial_decay = kwargs.pop('decay', 0.0)
         self.epsilon = kwargs.pop('epsilon', K.epsilon())
         learning_rate = kwargs.pop('lr', learning_rate)
@@ -497,6 +497,7 @@ class Adam(Optimizer):
             self.beta_2 = K.variable(beta_2, name='beta_2')
             self.decay = K.variable(self.initial_decay, name='decay')
         self.amsgrad = amsgrad
+        self.bias_correction = bias_correction
 
     @interfaces.legacy_get_updates_support
     @K.symbolic
@@ -508,10 +509,11 @@ class Adam(Optimizer):
         if self.initial_decay > 0:
             lr = lr * (1. / (1. + self.decay * K.cast(self.iterations,
                                                       K.dtype(self.decay))))
-
-        t = K.cast(self.iterations, K.floatx()) + 1
-        lr_t = lr * (K.sqrt(1. - K.pow(self.beta_2, t)) /
-                     (1. - K.pow(self.beta_1, t)))
+        
+        if self.bias_correction:
+            t = K.cast(self.iterations, K.floatx()) + 1
+            lr_t = lr * (K.sqrt(1. - K.pow(self.beta_2, t)) /
+                        (1. - K.pow(self.beta_1, t)))
 
         ms = [K.zeros(K.int_shape(p),
               dtype=K.dtype(p),
@@ -559,7 +561,8 @@ class Adam(Optimizer):
                   'beta_2': float(K.get_value(self.beta_2)),
                   'decay': float(K.get_value(self.decay)),
                   'epsilon': self.epsilon,
-                  'amsgrad': self.amsgrad}
+                  'amsgrad': self.amsgrad,
+                  'bias_correction': self.bias_correction}
         base_config = super(Adam, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
